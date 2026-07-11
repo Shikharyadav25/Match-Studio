@@ -1,0 +1,25 @@
+{
+  "name": "score-dashboard",
+  "version": "1.0.0",
+  "description": "A production-grade, highly resilient real-time sports dashboard that broadcasts live match scores and ball-by-ball commentary to connected clients over WebSockets. The system features a selective subscribe/unsubscribe protocol, a type-safe database layer, strict validation schemas, bot protection, and uptime/APM monitoring.",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Shikharyadav25/Match-Studio.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/Shikharyadav25/Match-Studio/issues"
+  },
+  "homepage": "https://github.com/Shikharyadav25/Match-Studio#readme",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
