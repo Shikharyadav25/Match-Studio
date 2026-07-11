@@ -29,6 +29,9 @@ graph TD
 | **ORM** | Drizzle ORM | Modern, type-safe database queries and migrations |
 | **Validation** | Zod | Dynamic validation for both API payloads and WebSocket messages |
 | **Security** | Arcjet | Bot detection, rate limiting, and API abuse prevention |
+| **Broker / Cache** | Redis | Cross-instance WebSocket event synchronization (Pub/Sub) |
+| **Load Balancer** | Nginx | Reverse proxy, WebSocket connection handling, and load balancing |
+| **Containerization**| Docker / Compose | Multi-container environment scaling and orchestration |
 | **Monitoring** | Site24x7 APM | Uptime checks and end-to-end performance tracing |
 
 ---
@@ -225,11 +228,54 @@ The application incorporates comprehensive APM and uptime metrics:
 
 ---
 
+## ⚖️ Scaling & High Availability (Docker, Redis, Nginx)
+
+To handle massive scaling and high availability, the architecture supports horizontal scaling through containerization, reverse-proxy load balancing, and a Redis-backed message broker for WebSocket sync.
+
+```mermaid
+graph TD
+    Client1[React Client A] <-->|WebSockets & HTTP| Nginx[Nginx Load Balancer]
+    Client2[React Client B] <-->|WebSockets & HTTP| Nginx
+    
+    Nginx <-->|Proxy Traffic| Backend1[Backend Service Instance 1]
+    Nginx <-->|Proxy Traffic| Backend2[Backend Service Instance 2]
+    
+    Backend1 <-->|Drizzle ORM| DB[(Shared PostgreSQL DB)]
+    Backend2 <-->|Drizzle ORM| DB
+    
+    Backend1 <-->|Pub/Sub Message Sync| Redis[(Redis Pub/Sub Broker)]
+    Backend2 <-->|Pub/Sub Message Sync| Redis
+```
+
+### 1. Multi-Instance WebSocket Sync via Redis Pub/Sub
+Because WebSocket connections are stateful (each client maintains a persistent TCP connection to a specific backend instance), broadcasts must be synchronized across instances. 
+* **State Problem**: If an admin posts a commentary update to **Backend Instance 2**, clients connected to **Backend Instance 1** would normally not receive it.
+* **Pub/Sub Solution**: 
+  * The backend instance receiving the update publishes the message to a shared Redis channel (e.g., `match:broadcasts`).
+  * All active backend instances subscribe to this channel.
+  * When Redis relays the message, every backend instance broadcasts it to its locally connected WebSocket clients interested in that match.
+
+### 2. Nginx Load Balancing
+* **Reverse Proxy**: Nginx routes REST API calls and manages the WebSocket handshake upgrades (`Upgrade` and `Connection` headers).
+* **Load Distribution**: Traffic is distributed across backend instances. Sticky sessions (`ip_hash`) can optionally be enabled, though the Redis Pub/Sub synchronization layer makes connection location transparent.
+
+### 3. Docker & Orchestration
+* **Multi-Stage Builds**: Dockerfiles compile production-ready assets and minimize container image size.
+* **Orchestration**: `docker-compose.yml` configures the backend app, PostgreSQL, Redis, and Nginx.
+* **Scaling Command**: To scale the backend application layer horizontally:
+  ```bash
+  docker compose up --scale backend=3 --build -d
+  ```
+
+---
+
 ## 🚀 Getting Started
 
 ### Prerequisites
 *   Node.js (v18+)
 *   PostgreSQL
+*   Redis (for scaled architecture)
+*   Docker & Docker Compose (optional, for containerized scaling)
 *   Arcjet Account & API Key
 
 ### Local Installation
@@ -250,6 +296,7 @@ The application incorporates comprehensive APM and uptime metrics:
     ```env
     PORT=3000
     DATABASE_URL=postgresql://user:password@localhost:5432/score_db
+    REDIS_URL=redis://localhost:6379
     ARCJET_KEY=ajkey_xxxxxxxxxxxxxxxxxxxxxxxxxx
     NODE_ENV=development
     ```
@@ -269,3 +316,28 @@ The application incorporates comprehensive APM and uptime metrics:
     ```bash
     npm test
     ```
+
+### Running the Scaled Architecture with Docker
+
+As an alternative to manual local setup, you can run the entire scaled system (Express backend, Redis, Nginx, PostgreSQL) via Docker Compose:
+
+1. **Configure Environment Variables**:
+   Create a `.env` file and set the required variables:
+   ```env
+   PORT=3000
+   DATABASE_URL=postgresql://postgres:postgres@db:5432/score_db
+   REDIS_URL=redis://redis:6379
+   ARCJET_KEY=your_arcjet_key_here
+   NODE_ENV=production
+   ```
+
+2. **Spin Up the Containers**:
+   ```bash
+   docker compose up --build
+   ```
+
+3. **Scale Backend Nodes**:
+   To test the load balancing and Redis sync with multiple backend instances:
+   ```bash
+   docker compose up --scale backend=3 -d
+   ```
