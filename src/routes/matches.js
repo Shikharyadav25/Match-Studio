@@ -1,23 +1,39 @@
 import { Router } from 'express';
-import { createMatchSchema } from '../validation/matches';
-import {matches} from "../db/schema.js";
-import {db} from "../db/client.js";
-import { getMatchStatus } from '../utils/match-status';
+import { createMatchSchema, listMatchesQuerySchema } from '../validation/matches.js';
+import { matches } from "../db/schema.js";
+import { db } from "../db/db.js";
+import { getMatchStatus } from '../utils/match-status.js';
 
 export const matchRouter = Router();
 
-matchRouter.get('/', (req,res) => {
-    res.status(200).json({ message: 'Matches List'})
+const MAX_LIMIT = 100;
+
+matchRouter.get('/', async (req, res) => {
+    const parsed = listMatchesQuerySchema.safeParse(req.query);
+
+    if(!parsed.success){
+        return res.status(400).json({ error: 'Invalid payload', details: JSON.stringify(parsed.error) });
+    }
+    const limit = Math.min(parsedData.data.limit ?? 50 , MAX_LIMIT);
+
+    try{
+        const data = await db.select().from(matches.orderBy((desc(matches.createdAt).limit)(limit)))
+
+        res.json( { data });
+
+    } catch(e){
+        res.status(500).json({ error: 'Failed to list matches' });
+    }
 })
 
-matchRouter.post('/', async (req,res) => {
+matchRouter.post('/', async (req, res) => {
     const parsed = createMatchSchema.safeParse(req.body);
     const { data: { startTime, endTime, homeScore, awayScore } } = parsed;
 
-    if(!parsed.success){
-        return res.status(400).json({ error: 'Invalid payload', details: JSON.stringify(parsed.error)});
+    if (!parsed.success) {
+        return res.status(400).json({ error: 'Invalid payload', details: JSON.stringify(parsed.error) });
     }
-    try{
+    try {
         const [event] = await db.insert(matches).values({
             ...parsed.data,
             startTime: new Date(startTime),
@@ -28,7 +44,7 @@ matchRouter.post('/', async (req,res) => {
         }).returning();
 
         res.status(201).json({ data: event });
-    } catch (e){
+    } catch (e) {
         res.status(500).json({ error: 'Failed to create match', details: JSON.stringify(e) });
     }
 })
