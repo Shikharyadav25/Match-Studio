@@ -1,0 +1,15 @@
+### Get Matches List
+GET http://localhost:8000/matches
+
+
+###
+POST http://localhost:8000/matches
+Content-Type: application/json
+
+{
+    "sport": "football",
+    "homeTeam": "Man United",
+    "awayTeam": "Man City",
+    "startTime": "2026-07-15T01:43:00+00:00",
+    "endTime": "2026-07-15T03:43:00+00:00"
+}
