@@ -26,7 +26,7 @@ export function attachWebSocketServer(server){
             ws.isAlive = false;
             ws.ping()
         });
-    }, 3000);
+    }, 30000);
 
     function broadcastMatchCreated(match){
         broadcast(wss, { type: 'match_created', data: match });
